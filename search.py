@@ -1,10 +1,27 @@
 """Модуль поиска подстроки в строке"""
 import argparse
-import hashlib
 import time
 from colorama import Fore
 
+
 def time_counter(function):
+    """
+    декоратор, который измеряет и выводит время выполнения функции
+
+    Args:
+        function (callable): функция, время выполнения которой будет измерено
+
+    Returns:
+        callable: обернутая функция, которая измеряет время выполнения и возвращает результат
+
+    Example:
+        @time_counter
+        def my_function():
+            # Какой-то код
+            pass
+
+        my_function()  # вызов функции с измерением времени выполнения
+    """
     def do_time_count(*args, **kwargs):
         start = time.perf_counter()
         result_time = function(*args, **kwargs)
@@ -15,76 +32,74 @@ def time_counter(function):
     return do_time_count
 
 
-def hashh(input_string):
+def kmp_search(string, substring, method, count):
     """
-    переопределение метода hash()
-    :param input_string: входная строка
-    :return: хэш строки
+    функция поиска алгоритма Кнута-Морриса-Пратта
+    :param string: строка для поиска
+    :param substring: искомая подстрока
+    :param method: направление поиска
+    :param count: количество искомых подстрок
+    :return: кортеж с индексами начала подстрок
     """
-    sha256 = hashlib.sha256()
-    sha256.update(input_string.encode('utf-8'))
-    hash_value = sha256.hexdigest()
-    return hash_value
+    def compute_prefix(pattern):
+        prefix = [0] * len(pattern)
+        j = 0
+        for i in range(1, len(pattern)):
+            while j > 0 and pattern[i] != pattern[j]:
+                j = prefix[j - 1]
+            if pattern[i] == pattern[j]:
+                j += 1
+            prefix[i] = j
+        return prefix
 
+    def kmp(string, substring):
+        prefix = compute_prefix(substring)
+        matches = []
+        j = 0
+        i = 0
 
-def rabin_karp(string, substring, method, count):
-    """
-    Функция Рабина-Карпа
-    :param string: Строка в которой буддет производиться поиск
-    :param substring: Подстрока, которая будет искаться в строке
-    :param method: Направление поиска подстроки в строке
-    :param count: Количество вхождений подктроки в строку
-    :return: Количество индексов с вхождениями подстроки в строке
-    """
-    string_len, substring_len = len(string), len(substring)
-    result_list = []
-    start, stop, step = 0, string_len - substring_len + 1, 1
-    hash_substring = hashh(substring)
-    if method == 'last':
-        start, stop, step = len(string) - 1, 0 + len(substring) - 2, -1
-        # len(string) - 1 устанавливает начальную позицию в конце строки
-        # означает, что итерация будет продолжаться до позиции len(substring) - 1.
-        # 0 + len(substring) - 2То есть, мы итерируемся по подстроке, и однако, чтобы включить последний символ,
-        # мы вычитаем 1
-        substring = ''.join(reversed(substring))
-        hash_substring = hashh(substring)
-    if string_len >= substring_len:
-        for i in range(start, stop, step):
-            if method == 'first':
-                slice_stop = i + substring_len  # для извлечения подстроки
+        if method == 'last':
+            i = len(string) - 1
+            substring = substring[::-1]
+
+        while 0 <= i < len(string):
+            while j > 0 and string[i] != substring[j]:
+                j = prefix[j - 1]
+            if string[i] == substring[j]:
+                j += 1
+            if j == len(substring):
+                if method == 'last':
+                    matches.append(i)
+                else:
+                    matches.append(i - len(substring) + 1)
+                j = prefix[j - 1]
+            if method == 'last':
+                i -= 1
             else:
-                slice_stop = i - substring_len
-                if slice_stop < 0:
-                    slice_stop = None
-            hs = hashh(string[i:slice_stop:step])  # вычислим хэш сегмента строки
-            if hs == hash_substring:
-                if string[i:slice_stop:step] == substring:
-                    if method == 'first':
-                        result_list.append(i)
-                    else:
-                        result_list.append(i - substring_len + 1)
-                    if len(result_list) == count:
-                        return tuple(result_list)
-        if not result_list:
-            return None
-        else:
-            return tuple(result_list)
-    else:
-        return None
+                i += 1
+
+        return matches
+
+    result_list = kmp(string, substring)
+
+    if count > 0:
+        result_list = result_list[:count]
+
+    return tuple(result_list) if result_list else None
 
 
 @time_counter
 def search(string=None, substring=None, case_sensitivity=True,
            method='first', count=1, file_path=None):
     """
-    Функция для поиска подстроки в строке при помощи функции Рабина-Карпа
-    :param string: Строка в которой будет производиться поиск
-    :param substring: Последовательность из подстрок или одна подстрока для поиска в строке
-    :param case_sensitivity: Флаг чувствительности к регистру
-    :param method: Направление поиска подстроки в строке
-    :param count: Количество вхождений подстроки в строку
-    :param file_path: Файл, в котором будет производиться поиск
-    :return: Количество индексов с вхождениями подстроки в строке или словарь
+    обертка для функции поиска алгоритмом Кнутта-Морриса-Пратта
+    :param string: строка в которой будет производиться поиск
+    :param substring: подстрока для поиска в строке
+    :param case_sensitivity: флаг чувствительности к регистру
+    :param method: направление поиска подстроки в строке
+    :param count: количество вхождений подстроки в строку
+    :param file_path: файл, в котором будет производиться поиск
+    :return: количество индексов с вхождениями подстроки в строке или словарь
     """
     if file_path:
         with open(file_path, 'r') as string_file:
@@ -98,11 +113,11 @@ def search(string=None, substring=None, case_sensitivity=True,
             substring = tuple(string.lower() for string in substring)
 
     if isinstance(substring, str):
-        return rabin_karp(string, substring, method, count)
+        return kmp_search(string, substring, method, count)
     if isinstance(substring, tuple):
         substring_dict = {}
         for i in substring:
-            substring_dict[i] = rabin_karp(string, i, method, count)
+            substring_dict[i] = kmp_search(string, i, method, count)
         return substring_dict
 
 
@@ -124,33 +139,33 @@ def main():
 
     if args.file_path:
         with open(args.file_path, 'r') as file:
-            lines = file.readlines()[:10]
+            lines = file.readlines()
             string = "".join(lines)
     else:
         string = args.string
 
     results = search(string=string, substring=args.substr, case_sensitivity=args.case_sensitivity,
                      method=args.method, count=args.count, file_path=args.file_path)
+
+    print_string = '\n'.join(
+        string.split('\n')[:10])
+
     if isinstance(results, dict):
-        print(f'Строка: {string}')
+        print(f'Строка:\n{print_string}')
         print(f'Подстроки: {str(args.substr)}')
         print('Результат:')
 
         for key, value in results.items():
             if value:
                 print(f"'{key}': {value}")
-                if len(value) > 10:
-                    print(f'Первые 10 индексов: {value[:10]}')
             else:
                 print(f"'{key}': Not Found")
     else:
-        print(f'Строка: {string}')
+        print(f'Строка:{print_string}\n')
         print(f'Подстрока(и): {str(args.substr)}')
         print(f'Результат: {results}')
-        if results and len(results) > 10:
-            print(f'Первые 10 индексов: {results[:10]}')
 
 
 if __name__ == '__main__':
-    # colorama.init()
     main()
+

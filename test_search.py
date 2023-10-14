@@ -26,6 +26,7 @@ TEST_SEARCH_ONE_SYMBOL = [
     ('bca', 'c', True, 'last', 1, (1,)),
 ]
 
+
 TEST_SEARCH_MANY_SYMBOL = [
     ('', 'abc', False, 'first', 1, None),
     ('', 'abc', True, 'first', 1, None),
@@ -110,3 +111,4 @@ class TestSearch(unittest.TestCase):
                     ),
                     expected
                 )
+
