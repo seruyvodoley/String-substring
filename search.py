@@ -1,7 +1,7 @@
 """Модуль поиска подстроки в строке"""
 import argparse
 import time
-from colorama import Fore
+from colorama import Fore, Style
 
 
 def time_counter(function):
@@ -121,6 +121,44 @@ def search(string=None, substring=None, case_sensitivity=True,
         return substring_dict
 
 
+def highlight_substrings(string, indicies, color_map):
+    # Функция для подсветки подстрок в строке
+    stack = []
+    for i in range(len(string)):
+        if indicies.get(i) is not None:
+            for el in indicies[i]:
+                stack.append((i, el))
+
+        if len(stack) == 0:
+            print(Style.RESET_ALL, end='')
+            print(string[i], end='')
+        else:
+            print(color_map[stack[-1][1]] + string[i], end='')
+
+        while len(stack) != 0 and i - stack[-1][0] >= len(stack[-1][1]) - 1:
+            stack.pop()
+
+    print(Style.RESET_ALL)
+
+def colored_string(results):
+    colors = [Fore.RED, Fore.MAGENTA, Fore.BLUE, Fore.YELLOW, Fore.GREEN]
+    color_map = {}
+    idx = 0
+
+    positions = {}
+    for k, v in results.items():
+        color_map[k] = colors[idx]
+        idx += 1
+        if idx == len(colors):
+            idx = 0
+
+        if v:
+            for i in v:
+                if positions.get(i) is None:
+                    positions[i] = []
+                positions[i].append(k)
+    return positions, color_map
+
 def main():
     parser = argparse.ArgumentParser(description='Алгоритм Рабина-Карпа')
     parser.add_argument('-string', type=str, help='Строка для поиска')
@@ -144,26 +182,29 @@ def main():
     else:
         string = args.string
 
-    results = search(string=string, substring=args.substr, case_sensitivity=args.case_sensitivity,
-                     method=args.method, count=args.count, file_path=args.file_path)
+    result = search(string=string, substring=args.substr, case_sensitivity=args.case_sensitivity,
+                    method=args.method, count=args.count, file_path=args.file_path)
 
-    print_string = '\n'.join(
-        string.split('\n')[:10])
+    # Ограничение на вывод первых 10 строк файла
+    print_string = '\n'.join(string.split('\n')[:10])
 
-    if isinstance(results, dict):
-        print(f'Строка:\n{print_string}')
+    if isinstance(result, dict):
+        positions, color_map = colored_string(result)
+
+        highlight_substrings(print_string, positions, color_map)
         print(f'Подстроки: {str(args.substr)}')
         print('Результат:')
-
-        for key, value in results.items():
+        for key, value in result.items():
             if value:
                 print(f"'{key}': {value}")
             else:
                 print(f"'{key}': Not Found")
+
     else:
-        print(f'Строка:{print_string}\n')
+        positions, color_map = colored_string({'Result': result})
+        highlight_substrings(print_string, positions, color_map)
         print(f'Подстрока(и): {str(args.substr)}')
-        print(f'Результат: {results}')
+        print(f'Результат: {result}')
 
 
 if __name__ == '__main__':
