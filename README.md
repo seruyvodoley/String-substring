@@ -8,7 +8,7 @@
 
 Использован алгоритм Рабина-Карпа
 
-Алгоритм поиска реализован в модуле `search.py`.
+Алгоритм поиска реализован в модуле `kmp_search.py`.
 Функция поиска с сигнатурой:
 
 ```python
@@ -62,7 +62,7 @@ python search.py -string "Строка для поиска" -substr "для" "п
 3. Поиск нескольких подстрок в файле:
 
 ```bash
-python search.py -file_path "text_file.txt" -substr "для" "поиска"
+python search.py -file_path "search.py" -substr "def" "time"
 ```
 
 4. Поиск с учетом регистра:
@@ -74,7 +74,7 @@ python search.py -string "Строка для поиска" -substr "Для" -ca
 5. Поиск с ограничением на количество вхождений:
 
 ```bash
-python search.py -string "Строка для поиска" -substr "строка" -count 2
+python search.py -string "Строка для поиска строка" -substr "строка" -count 2
 ```
 
 6. Измерение времени выполнения:
@@ -86,5 +86,5 @@ python search.py -string "Длинная строка для поиска" -subs
 7. Поиск с использованием направления:
 
 ```bash
-python search.py -string "Это строка для поиска" -substr "строка" -method "last"
+python search.py -string "Это строка для поиска  строка" -substr "строка" -method "last"
 ```

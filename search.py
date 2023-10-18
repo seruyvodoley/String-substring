@@ -1,7 +1,8 @@
-"""Модуль поиска подстроки в строке"""
+"""Модуль поиска подстроки в строке с помощью алгоритма КМП"""
 import argparse
 import time
 from colorama import Fore, Style
+from kmp_search import KMPSearch
 
 
 def time_counter(function):
@@ -23,6 +24,13 @@ def time_counter(function):
         my_function()  # вызов функции с измерением времени выполнения
     """
     def do_time_count(*args, **kwargs):
+        """
+        Измеряет время выполнения функции и возвращает результат и время выполнения
+        :param function: Функция, время выполнения которой нужно измерить
+        :param args: Позиционные аргументы, передаваемые в функцию
+        :param kwargs: Именованные аргументы, передаваемые в функцию
+        :return: Результат выполнения функции и время выполнения в секундах (с точностью до 9 знаков)
+        """
         start = time.perf_counter()
         result_time = function(*args, **kwargs)
         stop = time.perf_counter()
@@ -30,62 +38,6 @@ def time_counter(function):
         return result_time
 
     return do_time_count
-
-
-def kmp_search(string, substring, method, count):
-    """
-    функция поиска алгоритма Кнута-Морриса-Пратта
-    :param string: строка для поиска
-    :param substring: искомая подстрока
-    :param method: направление поиска
-    :param count: количество искомых подстрок
-    :return: кортеж с индексами начала подстрок
-    """
-    def compute_prefix(pattern):
-        prefix = [0] * len(pattern)
-        j = 0
-        for i in range(1, len(pattern)):
-            while j > 0 and pattern[i] != pattern[j]:
-                j = prefix[j - 1]
-            if pattern[i] == pattern[j]:
-                j += 1
-            prefix[i] = j
-        return prefix
-
-    def kmp(string, substring):
-        prefix = compute_prefix(substring)
-        matches = []
-        j = 0
-        i = 0
-
-        if method == 'last':
-            i = len(string) - 1
-            substring = substring[::-1]
-
-        while 0 <= i < len(string):
-            while j > 0 and string[i] != substring[j]:
-                j = prefix[j - 1]
-            if string[i] == substring[j]:
-                j += 1
-            if j == len(substring):
-                if method == 'last':
-                    matches.append(i)
-                else:
-                    matches.append(i - len(substring) + 1)
-                j = prefix[j - 1]
-            if method == 'last':
-                i -= 1
-            else:
-                i += 1
-
-        return matches
-
-    result_list = kmp(string, substring)
-
-    if count > 0:
-        result_list = result_list[:count]
-
-    return tuple(result_list) if result_list else None
 
 
 @time_counter
@@ -101,6 +53,7 @@ def search(string=None, substring=None, case_sensitivity=True,
     :param file_path: файл, в котором будет производиться поиск
     :return: количество индексов с вхождениями подстроки в строке или словарь
     """
+
     if file_path:
         with open(file_path, 'r') as string_file:
             string = string_file.read()
@@ -111,18 +64,24 @@ def search(string=None, substring=None, case_sensitivity=True,
             substring = substring.lower()
         if isinstance(substring, tuple):
             substring = tuple(string.lower() for string in substring)
-
+    searcher = KMPSearch(string)
     if isinstance(substring, str):
-        return kmp_search(string, substring, method, count)
+        return searcher.kmp_search(substring, method, count)
     if isinstance(substring, tuple):
         substring_dict = {}
         for i in substring:
-            substring_dict[i] = kmp_search(string, i, method, count)
+            substring_dict[i] = searcher.kmp_search(i, method, count)
         return substring_dict
 
 
 def highlight_substrings(string, indicies, color_map):
-    # Функция для подсветки подстрок в строке
+    """
+    функция для подсветки подстрок в строке
+    :param string: исходная строка
+    :param indicies: словарь с индексами для подсветки
+    :param color_map: набор цветов из которых выберется подсветка
+    :return: None
+    """
     stack = []
     for i in range(len(string)):
         if indicies.get(i) is not None:
@@ -140,7 +99,16 @@ def highlight_substrings(string, indicies, color_map):
 
     print(Style.RESET_ALL)
 
+
 def colored_string(results):
+    """
+    функция для создания информации о подсветке подстрок
+    :param results: словарь с ключами - названия подстрок, а значения - списки индексов
+    :return: кортеж из двух словарей
+             positions: ключи - индексы символов в строке, значения - списки названий подстрок,
+                        начинающихся в данной позиции.
+            color_map: ключи - названия подстрок, значения - соответствующие ANSI-цвета для подсветки
+    """
     colors = [Fore.RED, Fore.MAGENTA, Fore.BLUE, Fore.YELLOW, Fore.GREEN]
     color_map = {}
     idx = 0
@@ -159,7 +127,12 @@ def colored_string(results):
                 positions[i].append(k)
     return positions, color_map
 
+
 def main():
+    """
+    функция реализующая консольную обертку
+    :return: None
+    """
     parser = argparse.ArgumentParser(description='Алгоритм Рабина-Карпа')
     parser.add_argument('-string', type=str, help='Строка для поиска')
     parser.add_argument('-substr', type=str, help='Подстрока или кортеж подстрок для поиска', nargs='*')
@@ -169,12 +142,10 @@ def main():
     parser.add_argument('-file_path', type=str, help='Файл, в котором будет производиться поиск строки', default=None)
     args = parser.parse_args()
 
-    if isinstance(args.substr, list):
-        if len(args.substr) < 2:
-            args.substr = args.substr[0]
-        else:
-            args.substr = tuple(args.substr)
+    # Преобразовать args.substr в кортеж, даже если это строка
+    args.substr = tuple(args.substr) if args.substr else tuple()
 
+    # Загрузить строку из файла, если указан файл
     if args.file_path:
         with open(args.file_path, 'r') as file:
             lines = file.readlines()
@@ -182,31 +153,36 @@ def main():
     else:
         string = args.string
 
-    result = search(string=string, substring=args.substr, case_sensitivity=args.case_sensitivity,
-                    method=args.method, count=args.count, file_path=args.file_path)
+    result = search(
+        string=string,
+        substring=args.substr,
+        case_sensitivity=args.case_sensitivity,
+        method=args.method,
+        count=args.count,
+        file_path=args.file_path
+    )
 
     # Ограничение на вывод первых 10 строк файла
     print_string = '\n'.join(string.split('\n')[:10])
 
     if isinstance(result, dict):
         positions, color_map = colored_string(result)
+    else:
+        positions, color_map = colored_string({args.substr: result})
 
-        highlight_substrings(print_string, positions, color_map)
-        print(f'Подстроки: {str(args.substr)}')
-        print('Результат:')
+    highlight_substrings(print_string, positions, color_map)
+    print(f'Подстрока(и): {str(args.substr)}')
+    print('Результат:')
+
+    if isinstance(result, dict):
         for key, value in result.items():
             if value:
                 print(f"'{key}': {value}")
             else:
-                print(f"'{key}': Not Found")
-
+                print(f"'{key}': Не нашель")
     else:
-        positions, color_map = colored_string({'Result': result})
-        highlight_substrings(print_string, positions, color_map)
-        print(f'Подстрока(и): {str(args.substr)}')
         print(f'Результат: {result}')
 
 
 if __name__ == '__main__':
     main()
-
